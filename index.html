@@ -5,36 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Cambodia Land Risk Check</title>
     <link rel="stylesheet" href="./src/styles.css" />
-    <style>
-      .static-map-svg {
-        display: block;
-        width: 100%;
-        height: auto;
-        max-height: 780px;
-        min-height: 620px;
-        border-radius: 8px;
-        box-shadow: 0 26px 70px rgba(6, 44, 93, 0.14);
-        background: #d7e1e6;
-        object-fit: contain;
-      }
-
-      #map,
-      .map-controls {
-        display: none !important;
-      }
-
-      @media (max-width: 980px) {
-        .static-map-svg {
-          min-height: 500px;
-        }
-      }
-
-      @media (max-width: 620px) {
-        .static-map-svg {
-          min-height: 410px;
-        }
-      }
-    </style>
   </head>
   <body>
     <main class="shell">
@@ -116,10 +86,10 @@
                 <g class="pdf-city"><circle cx="2829.04" cy="1124.62" r="9"></circle><text x="2847.04" y="1131.62">Stung Treng</text></g>
                 <g class="pdf-city"><circle cx="2152.99" cy="928.32" r="9"></circle><text x="2170.99" y="935.32">Preah Vihear</text></g>
                 <g class="pdf-city"><circle cx="1426.63" cy="1813.19" r="9"></circle><text x="1444.63" y="1820.19">Pursat</text></g>
-                <g>
-                  <circle cx="3663.88" cy="1871.09" r="78" class="risk-halo red"></circle>
-                  <circle cx="3663.88" cy="1871.09" r="46" class="marker red"></circle>
-                  <circle cx="3663.88" cy="1871.09" r="14" class="marker-core"></circle>
+                <g id="applicantMarker" class="applicant-marker">
+                  <circle id="applicantHalo" cx="3663.88" cy="1871.09" r="78" class="risk-halo red"></circle>
+                  <circle id="applicantPin" cx="3663.88" cy="1871.09" r="46" class="marker red"></circle>
+                  <circle id="applicantCore" cx="3663.88" cy="1871.09" r="14" class="marker-core"></circle>
                 </g>
               </g>
             </svg>
