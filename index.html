@@ -6,7 +6,7 @@
     <title>Cambodia Land Risk Check</title>
     <link rel="stylesheet" href="./src/styles.css" />
     <style>
-      .static-map-image {
+      .static-map-svg {
         display: block;
         width: 100%;
         height: auto;
@@ -18,19 +18,19 @@
         object-fit: contain;
       }
 
-      .map-panel svg,
+      #map,
       .map-controls {
         display: none !important;
       }
 
       @media (max-width: 980px) {
-        .static-map-image {
+        .static-map-svg {
           min-height: 500px;
         }
       }
 
       @media (max-width: 620px) {
-        .static-map-image {
+        .static-map-svg {
           min-height: 410px;
         }
       }
@@ -89,7 +89,40 @@
 
         <section class="content-grid">
           <section class="map-panel" aria-label="Protected area map">
-            <img class="static-map-image" src="./assets/rendered/wcs-map.png" alt="WCS protected area map" />
+            <svg class="static-map-svg" viewBox="110 520 4040 3000" role="img" aria-label="WCS protected area map with restricted area overlay">
+              <defs>
+                <clipPath id="staticMapCrop"><rect x="110" y="520" width="4040" height="3000" rx="26"></rect></clipPath>
+              </defs>
+              <g clip-path="url(#staticMapCrop)">
+                <image href="./assets/rendered/wcs-map.png" x="0" y="0" width="4252" height="3968" preserveAspectRatio="xMidYMid meet"></image>
+                <rect x="110" y="520" width="4040" height="3000" class="pdf-map-soften"></rect>
+                <path d="M 3227.16 1561.23 L 3603.58 1526.35 L 3781.53 1742.60 L 3726.78 2049.53 L 3439.33 2300.65 L 3158.72 2161.14 L 3069.75 1868.16 L 3227.16 1561.23 Z" class="restricted-overlay"></path>
+                <path d="M 2816.52 1456.59 L 3227.16 1421.72 L 3418.79 1658.89 L 3329.82 1979.77 L 2987.62 2098.36 L 2754.92 1875.14 L 2816.52 1456.59 Z" class="restricted-overlay"></path>
+                <path d="M 3247.69 1003.17 L 3644.65 1052.00 L 3747.31 1365.91 L 3480.39 1561.23 L 3179.25 1449.62 L 3090.28 1177.57 L 3247.69 1003.17 Z" class="restricted-overlay"></path>
+                <path d="M 3158.72 480.00 L 3808.91 500.92 L 3891.03 738.10 L 3603.58 919.46 L 3158.72 828.78 L 3158.72 480.00 Z" class="restricted-overlay"></path>
+                <path d="M 1926.79 1177.57 L 2542.75 1198.49 L 2795.98 1463.57 L 2659.10 1805.38 L 2289.52 2049.53 L 1878.88 1923.97 L 1721.47 1526.35 L 1926.79 1177.57 Z" class="restricted-overlay"></path>
+                <path d="M 1447.71 549.75 L 2070.52 570.68 L 2234.77 919.46 L 1858.35 1198.49 L 1379.27 1017.12 L 1290.29 738.10 L 1447.71 549.75 Z" class="restricted-overlay"></path>
+                <path d="M 626.42 2063.48 L 1221.85 1896.06 L 1584.59 2133.24 L 1536.68 2572.71 L 1084.97 2851.73 L 674.33 2677.34 L 510.07 2314.61 L 626.42 2063.48 Z" class="restricted-overlay"></path>
+                <path d="M 831.74 2677.34 L 1331.36 2733.15 L 1440.86 3012.18 L 1139.72 3200.52 L 831.74 3123.79 L 729.08 2900.56 L 831.74 2677.34 Z" class="restricted-overlay"></path>
+                <g class="pdf-city capital"><circle cx="2117.19" cy="2498.49" r="13"></circle><text x="2135.19" y="2505.49">Phnom Penh</text></g>
+                <g class="pdf-city"><circle cx="1375.71" cy="1235.39" r="9"></circle><text x="1393.71" y="1242.39">Siem Reap</text></g>
+                <g class="pdf-city"><circle cx="935.91" cy="1424.72" r="9"></circle><text x="953.91" y="1431.72">Battambang</text></g>
+                <g class="pdf-city"><circle cx="1155.74" cy="3147.99" r="9"></circle><text x="1173.74" y="3154.99">Sihanoukville</text></g>
+                <g class="pdf-city"><circle cx="2090.16" cy="1693" r="9"></circle><text x="2108.16" y="1700">Kampong Thom</text></g>
+                <g class="pdf-city"><circle cx="2863.6" cy="1848.56" r="9"></circle><text x="2881.6" y="1855.56">Kratie</text></g>
+                <g class="pdf-city"><circle cx="3663.88" cy="1871.09" r="9"></circle><text x="3681.88" y="1878.09">Mondulkiri</text></g>
+                <g class="pdf-city"><circle cx="3526.45" cy="975.69" r="9"></circle><text x="3544.45" y="982.69">Ratanakiri</text></g>
+                <g class="pdf-city"><circle cx="784.24" cy="2455.86" r="9"></circle><text x="802.24" y="2462.86">Koh Kong</text></g>
+                <g class="pdf-city"><circle cx="2829.04" cy="1124.62" r="9"></circle><text x="2847.04" y="1131.62">Stung Treng</text></g>
+                <g class="pdf-city"><circle cx="2152.99" cy="928.32" r="9"></circle><text x="2170.99" y="935.32">Preah Vihear</text></g>
+                <g class="pdf-city"><circle cx="1426.63" cy="1813.19" r="9"></circle><text x="1444.63" y="1820.19">Pursat</text></g>
+                <g>
+                  <circle cx="3663.88" cy="1871.09" r="78" class="risk-halo red"></circle>
+                  <circle cx="3663.88" cy="1871.09" r="46" class="marker red"></circle>
+                  <circle cx="3663.88" cy="1871.09" r="14" class="marker-core"></circle>
+                </g>
+              </g>
+            </svg>
             <svg id="map" viewBox="0 0 1000 820" role="img"></svg>
             <div class="map-controls" aria-label="Map zoom controls">
               <button id="zoomInButton" type="button" aria-label="Zoom in">+</button>
