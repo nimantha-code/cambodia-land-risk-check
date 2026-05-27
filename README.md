@@ -9,3 +9,7 @@ Open `index.html` through a local static server or deploy the repository with Gi
 ## Important
 
 The current protected-area polygons are approximate starter data for demonstration. Before production use, replace them with official Cambodia protected-area GIS data and keep an auditable decision record for every application.
+
+## Deployment
+
+GitHub Pages publishes the static prototype from this branch.
