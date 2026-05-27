@@ -17,6 +17,13 @@ const state = {
   error: "",
   activeAreas: protectedAreas,
   activeLayerName: "Starter protected-area layer",
+  mapView: null,
+  mapGesture: {
+    pointers: new Map(),
+    startView: null,
+    startDistance: 0,
+    startCenter: null
+  },
   extraction: {
     file: null,
     busy: false,
@@ -53,6 +60,8 @@ document.addEventListener("DOMContentLoaded", () => {
     "locateButton",
     "notice",
     "map",
+    "zoomInButton",
+    "zoomOutButton",
     "decision",
     "decisionIcon",
     "decisionTitle",
@@ -76,6 +85,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
   elements.searchForm.addEventListener("submit", runSearch);
   elements.locateButton.addEventListener("click", useCurrentLocation);
+  elements.zoomInButton.addEventListener("click", () => zoomMap(1.35));
+  elements.zoomOutButton.addEventListener("click", () => zoomMap(1 / 1.35));
+  elements.map.addEventListener("wheel", handleMapWheel, { passive: false });
+  elements.map.addEventListener("pointerdown", handleMapPointerDown);
+  elements.map.addEventListener("pointermove", handleMapPointerMove);
+  elements.map.addEventListener("pointerup", handleMapPointerEnd);
+  elements.map.addEventListener("pointercancel", handleMapPointerEnd);
   elements.pdfInput.addEventListener("change", () => {
     state.extraction.file = elements.pdfInput.files?.[0] || null;
     state.extraction.result = null;
@@ -327,6 +343,7 @@ function renderExtraction() {
 }
 
 function renderMap(result) {
+  state.mapView ||= defaultMapView();
   const marker = projectToPdfMap(state.point.lng, state.point.lat);
   const restrictedOverlay = state.activeAreas.map((area) => `
     <path d="${polygonPath(area.polygon, projectToPdfMap)}" class="restricted-overlay"></path>
@@ -375,7 +392,128 @@ function renderMap(result) {
       <text x="${Math.min(marker.x + 94, pdfMap.width - 730)}" y="${Math.max(marker.y - 14, 116)}" class="sub">${result.nearest.name} · ${result.nearest.distanceKm.toFixed(2)} km</text>
     </g>
   `;
-  elements.map.setAttribute("viewBox", `${pdfMap.crop.x} ${pdfMap.crop.y} ${pdfMap.crop.width} ${pdfMap.crop.height}`);
+  setMapViewBox(state.mapView);
+}
+
+function defaultMapView() {
+  return {
+    x: pdfMap.crop.x,
+    y: pdfMap.crop.y,
+    width: pdfMap.crop.width,
+    height: pdfMap.crop.height
+  };
+}
+
+function setMapViewBox(view) {
+  state.mapView = clampMapView(view);
+  elements.map.setAttribute(
+    "viewBox",
+    `${state.mapView.x} ${state.mapView.y} ${state.mapView.width} ${state.mapView.height}`
+  );
+}
+
+function zoomMap(scale, center = getMapViewCenter()) {
+  const nextWidth = state.mapView.width / scale;
+  const nextHeight = state.mapView.height / scale;
+  const x = center.x - (center.x - state.mapView.x) * (nextWidth / state.mapView.width);
+  const y = center.y - (center.y - state.mapView.y) * (nextHeight / state.mapView.height);
+  setMapViewBox({ x, y, width: nextWidth, height: nextHeight });
+}
+
+function getMapViewCenter() {
+  return {
+    x: state.mapView.x + state.mapView.width / 2,
+    y: state.mapView.y + state.mapView.height / 2
+  };
+}
+
+function clampMapView(view) {
+  const crop = pdfMap.crop;
+  const minWidth = crop.width / 7;
+  const maxWidth = crop.width;
+  const width = clamp(view.width, minWidth, maxWidth);
+  const height = width * (crop.height / crop.width);
+  const x = clamp(view.x, crop.x, crop.x + crop.width - width);
+  const y = clamp(view.y, crop.y, crop.y + crop.height - height);
+  return { x, y, width, height };
+}
+
+function handleMapWheel(event) {
+  event.preventDefault();
+  zoomMap(event.deltaY < 0 ? 1.18 : 1 / 1.18, clientPointToMap(event.clientX, event.clientY));
+}
+
+function handleMapPointerDown(event) {
+  elements.map.setPointerCapture(event.pointerId);
+  state.mapGesture.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+  state.mapGesture.startView = { ...state.mapView };
+  state.mapGesture.startDistance = pointerDistance();
+  state.mapGesture.startCenter = pointerCenter();
+}
+
+function handleMapPointerMove(event) {
+  if (!state.mapGesture.pointers.has(event.pointerId)) return;
+  state.mapGesture.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+  if (state.mapGesture.pointers.size >= 2 && state.mapGesture.startDistance) {
+    const currentDistance = pointerDistance();
+    const centerPoint = pointerCenter();
+    const center = clientPointToMap(centerPoint.x, centerPoint.y);
+    const scale = currentDistance / state.mapGesture.startDistance;
+    const startView = state.mapGesture.startView;
+    const nextWidth = startView.width / scale;
+    const nextHeight = startView.height / scale;
+    const x = center.x - (center.x - startView.x) * (nextWidth / startView.width);
+    const y = center.y - (center.y - startView.y) * (nextHeight / startView.height);
+    setMapViewBox({ x, y, width: nextWidth, height: nextHeight });
+    return;
+  }
+
+  const startPoint = state.mapGesture.startCenter;
+  const currentPoint = pointerCenter();
+  if (!startPoint || !currentPoint) return;
+  const startView = state.mapGesture.startView;
+  const rect = elements.map.getBoundingClientRect();
+  const dx = ((currentPoint.x - startPoint.x) / rect.width) * startView.width;
+  const dy = ((currentPoint.y - startPoint.y) / rect.height) * startView.height;
+  setMapViewBox({ ...startView, x: startView.x - dx, y: startView.y - dy });
+}
+
+function handleMapPointerEnd(event) {
+  state.mapGesture.pointers.delete(event.pointerId);
+  if (state.mapGesture.pointers.size) {
+    state.mapGesture.startView = { ...state.mapView };
+    state.mapGesture.startDistance = pointerDistance();
+    state.mapGesture.startCenter = pointerCenter();
+  } else {
+    state.mapGesture.startView = null;
+    state.mapGesture.startDistance = 0;
+    state.mapGesture.startCenter = null;
+  }
+}
+
+function pointerDistance() {
+  const points = [...state.mapGesture.pointers.values()];
+  if (points.length < 2) return 0;
+  return Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
+}
+
+function pointerCenter() {
+  const points = [...state.mapGesture.pointers.values()];
+  if (!points.length) return null;
+  const total = points.reduce((acc, point) => ({ x: acc.x + point.x, y: acc.y + point.y }), { x: 0, y: 0 });
+  return { x: total.x / points.length, y: total.y / points.length };
+}
+
+function clientPointToMap(clientX, clientY) {
+  const point = elements.map.createSVGPoint();
+  point.x = clientX;
+  point.y = clientY;
+  const transformed = point.matrixTransform(elements.map.getScreenCTM().inverse());
+  return {
+    x: transformed.x,
+    y: transformed.y
+  };
 }
 
 function renderDecision(result) {
