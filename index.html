@@ -5,6 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Cambodia Land Risk Check</title>
     <link rel="stylesheet" href="./src/styles.css" />
+    <style>
+      .static-map-svg {
+        display: block;
+        width: 100%;
+        height: auto;
+        max-height: 780px;
+        min-height: 620px;
+        border-radius: 8px;
+        box-shadow: 0 26px 70px rgba(6, 44, 93, 0.14);
+        background: #d7e1e6;
+        object-fit: contain;
+      }
+
+      #map,
+      .map-controls {
+        display: none;
+      }
+    </style>
   </head>
   <body>
     <main class="shell">
