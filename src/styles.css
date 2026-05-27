@@ -60,20 +60,13 @@ input {
   gap: 16px;
 }
 
-.brand-mark {
-  display: grid;
-  place-items: center;
-  width: 92px;
-  height: 54px;
-  border-radius: 8px;
-  background:
-    linear-gradient(135deg, var(--lolc-green) 0 25%, transparent 25% 100%),
-    linear-gradient(135deg, transparent 0 72%, var(--lolc-orange) 72% 100%),
-    var(--lolc-blue);
-  color: #fff;
-  font-size: 1.35rem;
-  font-weight: 900;
-  letter-spacing: 0.5px;
+.brand-logo {
+  display: block;
+  width: 104px;
+  height: 64px;
+  object-fit: contain;
+  border-radius: 6px;
+  background: #fff;
 }
 
 .eyebrow {
