@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cambodia Land Risk Check</title>
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="workspace">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Cambodia micro-loan screening</p>
+            <h1>Land Risk Check</h1>
+          </div>
+          <a class="source-link" href="./assets/WCS_Protected_Area_Map.pdf" target="_blank" rel="noreferrer">
+            <span aria-hidden="true">▦</span>
+            Source map
+          </a>
+        </header>
+
+        <section class="search-strip" aria-label="Location search">
+          <form id="searchForm">
+            <span aria-hidden="true">⌕</span>
+            <input id="query" placeholder="Enter village, town, address, or coordinates" />
+            <button id="submitButton" type="submit">Check</button>
+          </form>
+          <button id="locateButton" class="icon-button" type="button" title="Use current location" aria-label="Use current location">
+            ⌖
+          </button>
+        </section>
+
+        <div id="notice" class="notice" hidden></div>
+
+        <section class="content-grid">
+          <section class="map-panel" aria-label="Protected area map">
+            <svg id="map" viewBox="0 0 1000 820" role="img"></svg>
+            <div class="map-legend">
+              <span><i class="legend restricted"></i> Protected / forest area</span>
+              <span><i class="legend marker-dot"></i> Applicant location</span>
+            </div>
+          </section>
+
+          <aside class="review-panel">
+            <section id="decision" class="decision">
+              <span id="decisionIcon" class="decision-icon" aria-hidden="true"></span>
+              <div>
+                <p id="decisionTitle"></p>
+                <h2 id="decisionText"></h2>
+              </div>
+            </section>
+
+            <section class="detail-block">
+              <div class="block-title"><span aria-hidden="true">⌖</span> Location reviewed</div>
+              <p id="locationLabel" class="location-label"></p>
+              <div id="coords" class="coords"></div>
+            </section>
+
+            <section class="detail-block">
+              <div class="block-title"><span aria-hidden="true">!</span> Nearest protected area</div>
+              <p id="nearestName" class="nearest-name"></p>
+              <dl id="nearestFacts" class="facts"></dl>
+            </section>
+
+            <section class="detail-block">
+              <div class="block-title"><span aria-hidden="true">☰</span> Review thresholds</div>
+              <label>
+                <span id="highText"></span>
+                <input id="highRange" type="range" min="1" max="15" />
+              </label>
+              <label>
+                <span id="cautionText"></span>
+                <input id="cautionRange" type="range" min="5" max="30" />
+              </label>
+            </section>
+
+            <section class="detail-block compact">
+              <p>
+                Prototype boundary data is approximate. Before production use, replace it with official Cambodia protected-area
+                GIS layers and keep an auditable decision record for every application.
+              </p>
+            </section>
+          </aside>
+        </section>
+      </section>
+    </main>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
