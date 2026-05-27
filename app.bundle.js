@@ -71,6 +71,17 @@ const demoState = {
   error: ""
 };
 
+const pdfMap = {
+  height: 3968,
+  bbox: [35.096157229, 46.611083948, 4219.110623167, 3916.012653508],
+  gpts: {
+    lowerLeft: { lat: 9.51611, lng: 101.91869 },
+    upperLeft: { lat: 15.06278, lng: 101.85332 },
+    upperRight: { lat: 15.06436, lng: 108.03085 },
+    lowerRight: { lat: 9.51709, lng: 107.96787 }
+  }
+};
+
 const ui = {};
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -95,7 +106,10 @@ document.addEventListener("DOMContentLoaded", () => {
     "pdfInput",
     "extractButton",
     "extractProgress",
-    "extractResult"
+    "extractResult",
+    "applicantHalo",
+    "applicantPin",
+    "applicantCore"
   ].forEach((id) => {
     ui[id] = document.getElementById(id);
   });
@@ -272,6 +286,7 @@ function renderDemo() {
   ui.cautionText.textContent = `Extra checks within ${demoState.thresholds.caution} km`;
   ui.highRange.value = demoState.thresholds.high;
   ui.cautionRange.value = demoState.thresholds.caution;
+  updateDemoMarker(result);
 }
 
 function evaluateDemoLocation(point) {
@@ -314,6 +329,42 @@ function parseDemoCoordinate(value) {
     return { lat: second, lng: first, label: `${second.toFixed(5)}, ${first.toFixed(5)}` };
   }
   return null;
+}
+
+function updateDemoMarker(result) {
+  const marker = projectToPdfMap(demoState.point.lng, demoState.point.lat);
+  [ui.applicantHalo, ui.applicantPin, ui.applicantCore].forEach((element) => {
+    if (!element) return;
+    element.setAttribute("cx", marker.x);
+    element.setAttribute("cy", marker.y);
+  });
+
+  if (ui.applicantHalo) ui.applicantHalo.setAttribute("class", `risk-halo ${result.tone}`);
+  if (ui.applicantPin) ui.applicantPin.setAttribute("class", `marker ${result.tone}`);
+}
+
+function projectToPdfMap(lng, lat) {
+  const [x0, y0, x1, y1] = pdfMap.bbox;
+  const leftLng = interpolate(pdfMap.gpts.lowerLeft.lng, pdfMap.gpts.upperLeft.lng, 0.5);
+  const rightLng = interpolate(pdfMap.gpts.lowerRight.lng, pdfMap.gpts.upperRight.lng, 0.5);
+  const bottomLat = interpolate(pdfMap.gpts.lowerLeft.lat, pdfMap.gpts.lowerRight.lat, 0.5);
+  const topLat = interpolate(pdfMap.gpts.upperLeft.lat, pdfMap.gpts.upperRight.lat, 0.5);
+  const u = clamp((lng - leftLng) / (rightLng - leftLng), 0, 1);
+  const v = clamp((lat - bottomLat) / (topLat - bottomLat), 0, 1);
+  const pageX = x0 + u * (x1 - x0);
+  const pageY = y0 + v * (y1 - y0);
+  return {
+    x: Number(pageX.toFixed(2)),
+    y: Number((pdfMap.height - pageY).toFixed(2))
+  };
+}
+
+function interpolate(a, b, t) {
+  return a + (b - a) * t;
+}
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
 }
 
 function isPointInPolygon(point, polygon) {
