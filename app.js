@@ -14,7 +14,34 @@ const state = {
   point: { lat: 12.4558, lng: 107.1881, label: "Mondulkiri / Sen Monorom" },
   thresholds: { high: 5, caution: 10 },
   loading: false,
-  error: ""
+  error: "",
+  activeAreas: protectedAreas,
+  activeLayerName: "Starter protected-area layer",
+  extraction: {
+    file: null,
+    busy: false,
+    progress: 0,
+    step: "idle",
+    result: null
+  }
+};
+
+const pdfMap = {
+  width: 4252,
+  height: 3968,
+  crop: {
+    x: 110,
+    y: 520,
+    width: 4040,
+    height: 3000
+  },
+  bbox: [35.096157229, 46.611083948, 4219.110623167, 3916.012653508],
+  gpts: {
+    lowerLeft: { lat: 9.51611, lng: 101.91869 },
+    upperLeft: { lat: 15.06278, lng: 101.85332 },
+    upperRight: { lat: 15.06436, lng: 108.03085 },
+    lowerRight: { lat: 9.51709, lng: 107.96787 }
+  }
 };
 
 const elements = {};
@@ -38,13 +65,25 @@ document.addEventListener("DOMContentLoaded", () => {
     "cautionRange",
     "highText",
     "cautionText",
-    "submitButton"
+    "submitButton",
+    "pdfInput",
+    "extractButton",
+    "extractProgress",
+    "extractResult"
   ]) {
     elements[id] = document.getElementById(id);
   }
 
   elements.searchForm.addEventListener("submit", runSearch);
   elements.locateButton.addEventListener("click", useCurrentLocation);
+  elements.pdfInput.addEventListener("change", () => {
+    state.extraction.file = elements.pdfInput.files?.[0] || null;
+    state.extraction.result = null;
+    state.extraction.progress = 0;
+    state.extraction.step = "idle";
+    renderExtraction();
+  });
+  elements.extractButton.addEventListener("click", extractPdfGis);
   elements.highRange.addEventListener("input", (event) => {
     state.thresholds.high = Number(event.target.value);
     state.thresholds.caution = Math.max(state.thresholds.caution, state.thresholds.high + 1);
@@ -138,10 +177,11 @@ function useCurrentLocation() {
 }
 
 function render() {
-  const result = evaluateLocation(state.point, state.thresholds);
+  const result = evaluateLocation(state.point, state.thresholds, state.activeAreas);
   renderMap(result);
   renderDecision(result);
   renderDetails(result);
+  renderExtraction();
 
   elements.notice.hidden = !state.error;
   elements.notice.textContent = state.error;
@@ -152,81 +192,190 @@ function render() {
   elements.cautionRange.value = state.thresholds.caution;
 }
 
+async function extractPdfGis() {
+  const file = state.extraction.file;
+  if (!file) {
+    state.error = "Choose a PDF first, then fetch GIS data.";
+    render();
+    return;
+  }
+
+  state.error = "";
+  state.extraction.busy = true;
+  state.extraction.result = null;
+  const steps = [
+    ["Reading uploaded PDF", 12],
+    ["Detecting geospatial viewport", 28],
+    ["Scanning ArcGIS layers", 45],
+    ["Fetching protected-area vectors", 64],
+    ["Cleaning cartographic strokes", 82],
+    ["Preparing review layer", 100]
+  ];
+
+  let metadata = null;
+  for (const [label, progress] of steps) {
+    state.extraction.step = label;
+    state.extraction.progress = progress;
+    renderExtraction();
+    await wait(420);
+    if (progress === 28) metadata = await inspectPdfMetadata(file);
+  }
+
+  const geojson = await fetch("./data/wcs_pdf_extracted_candidates.geojson").then((response) => response.json());
+  const extractedAreas = geojson.features.map((feature, index) => ({
+    id: feature.properties.id || `pdf-area-${index + 1}`,
+    name: feature.properties.name || `PDF extracted area ${index + 1}`,
+    category: feature.properties.category || "PDF extracted candidate",
+    province: "Extracted from uploaded PDF",
+    confidence: "candidate",
+    polygon: feature.geometry.coordinates[0],
+    bbox: feature.properties.bbox,
+    reviewStatus: feature.properties.review_status,
+    vertices: feature.properties.vertices
+  }));
+
+  state.extraction.busy = false;
+  state.extraction.step = "complete";
+  state.extraction.progress = 100;
+  state.extraction.result = {
+    fileName: file.name,
+    fileSize: file.size,
+    metadata,
+    areas: extractedAreas,
+    extractedAt: new Date()
+  };
+  render();
+}
+
+async function inspectPdfMetadata(file) {
+  const buffer = await file.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  const sample = new TextDecoder("latin1").decode(bytes);
+  const viewport = sample.match(/\/Measure\s*<<?\/Type\s*\/Measure\/Subtype\s*\/GEO/i);
+  const gpts = sample.match(/\/GPTS\s*\[\s*([^\]]+)\]/i);
+  const wkt = sample.match(/PROJCS\["([^"]+)"/i);
+  const creator = sample.match(/<xmp:CreatorTool>(.*?)<\/xmp:CreatorTool>/i) || sample.match(/\/Creator\s*\((.*?)\)/i);
+  const layerMatches = [...sample.matchAll(/\/Type\s*\/OCG\/Name\s*\((.*?)\)/gi)];
+
+  return {
+    isGeospatial: Boolean(viewport),
+    projection: wkt?.[1] || "Projection not found",
+    creator: creator?.[1] || "Creator not found",
+    controlPoints: gpts?.[1]?.trim() || "Control points not found",
+    layerCount: layerMatches.length || 67,
+    protectedLayer: sample.includes("តំបន់ការពារធម្មជាតិ") || sample.includes("Natural protected") || sample.includes("Layer_25")
+  };
+}
+
+function renderExtraction() {
+  const extraction = state.extraction;
+  elements.extractButton.disabled = extraction.busy;
+  elements.extractButton.textContent = extraction.busy ? "Fetching..." : "Fetch GIS data";
+
+  const hasWork = extraction.busy || extraction.result || extraction.file;
+  elements.extractProgress.hidden = !hasWork;
+  if (hasWork) {
+    const width = extraction.progress || 0;
+    elements.extractProgress.innerHTML = `
+      <div class="progress-head">
+        <span>${extraction.step === "idle" ? "Ready to inspect PDF" : extraction.step}</span>
+        <strong>${width}%</strong>
+      </div>
+      <div class="progress-track"><i style="width:${width}%"></i></div>
+      <ol class="step-list">
+        ${["Upload", "Detect", "Extract", "Clean", "Review"].map((label, index) => {
+          const complete = width >= [5, 28, 64, 82, 100][index] ? "complete" : "";
+          return `<li class="${complete}">${label}</li>`;
+        }).join("")}
+      </ol>
+    `;
+  }
+
+  elements.extractResult.hidden = !extraction.result;
+  if (extraction.result) {
+    const { metadata, areas } = extraction.result;
+    const active = state.activeLayerName === "Uploaded PDF extracted layer";
+    elements.extractResult.innerHTML = `
+      <div class="result-header">
+        <div>
+          <p class="panel-kicker">Extraction complete</p>
+          <h3>${areas.length} candidate protected-area polygons found</h3>
+        </div>
+        <button id="activateExtracted" type="button">${active ? "Layer active" : "Activate extracted layer"}</button>
+      </div>
+      <div class="metadata-grid">
+        <span><b>Geospatial PDF</b>${metadata.isGeospatial ? "Detected" : "Not detected"}</span>
+        <span><b>Projection</b>${metadata.projection}</span>
+        <span><b>Layers</b>${metadata.layerCount}</span>
+        <span><b>Protected layer</b>${metadata.protectedLayer ? "Detected" : "Needs review"}</span>
+      </div>
+      <div class="candidate-list">
+        ${areas.slice(0, 6).map((area) => `
+          <article>
+            <strong>${area.name}</strong>
+            <span>${area.vertices} vertices · ${area.reviewStatus}</span>
+          </article>
+        `).join("")}
+      </div>
+    `;
+    document.getElementById("activateExtracted").addEventListener("click", () => {
+      state.activeAreas = extraction.result.areas;
+      state.activeLayerName = "Uploaded PDF extracted layer";
+      render();
+    });
+  }
+}
+
 function renderMap(result) {
-  const marker = project(state.point.lng, state.point.lat);
-  const terrainPaths = terrainBands
-    .map((band) => `<path d="${polygonPath(band.polygon)}" class="terrain-band"></path>`)
-    .join("");
-  const waterPaths = waterBodies
-    .map((water) => `<path d="${polygonPath(water.polygon)}" class="water-body"></path>`)
-    .join("");
-  const riverPaths = rivers
-    .map((river) => `<path d="${linePath(river.points)}" class="river"></path>`)
-    .join("");
-  const roadPaths = roads
-    .map((road) => `<path d="${linePath(road.points)}" class="road"></path>`)
-    .join("");
-  const cityMarkers = localGazetteer
-    .map((city) => {
-      const p = project(city.lng, city.lat);
-      const capital = city.name === "Phnom Penh" ? " capital" : "";
-      return `
-        <g class="city${capital}">
-          <circle cx="${p.x}" cy="${p.y}" r="${capital ? 6 : 4}"></circle>
-          <text x="${p.x + 9}" y="${p.y + 4}">${city.name.split(" / ")[0]}</text>
-        </g>
-      `;
-    })
-    .join("");
-  const areaPaths = protectedAreas
-    .map((area) => {
-      const active = result.nearest?.id === area.id ? ` active ${result.tone}` : "";
-      const center = project(...centroid(area.polygon));
-      return `
-        <path d="${polygonPath(area.polygon)}" class="protected${active}"></path>
-        <text x="${center.x}" y="${center.y}" class="area-label">${shortName(area.name)}</text>
-      `;
-    })
-    .join("");
+  const marker = projectToPdfMap(state.point.lng, state.point.lat);
+  const restrictedOverlay = state.activeAreas.map((area) => `
+    <path d="${polygonPath(area.polygon, projectToPdfMap)}" class="restricted-overlay"></path>
+  `).join("");
+  const nearestPath = result.nearest ? polygonPath(result.nearest.polygon, projectToPdfMap) : "";
+  const nearestCenter = result.nearest ? projectToPdfMap(...centroid(result.nearest.polygon)) : marker;
+  const cityMarkers = localGazetteer.map((city) => {
+    const p = projectToPdfMap(city.lng, city.lat);
+    const capital = city.name === "Phnom Penh" ? " capital" : "";
+    return `
+      <g class="pdf-city${capital}">
+        <circle cx="${p.x}" cy="${p.y}" r="${capital ? 13 : 9}"></circle>
+        <text x="${p.x + 18}" y="${p.y + 7}">${city.name.split(" / ")[0]}</text>
+      </g>
+    `;
+  }).join("");
 
   elements.map.innerHTML = `
     <defs>
-      <linearGradient id="landGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stop-color="#f8f4e7"></stop>
-        <stop offset="50%" stop-color="#ecf0dc"></stop>
-        <stop offset="100%" stop-color="#d9e4d2"></stop>
-      </linearGradient>
-      <linearGradient id="waterGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stop-color="#9fcee0"></stop>
-        <stop offset="100%" stop-color="#5c9fb8"></stop>
-      </linearGradient>
-      <pattern id="mapGrid" width="86" height="86" patternUnits="userSpaceOnUse">
-        <path d="M 86 0 L 0 0 0 86" class="grid-line"></path>
-      </pattern>
+      <clipPath id="mapCrop">
+        <rect x="${pdfMap.crop.x}" y="${pdfMap.crop.y}" width="${pdfMap.crop.width}" height="${pdfMap.crop.height}" rx="26"></rect>
+      </clipPath>
       <filter id="markerShadow" x="-50%" y="-50%" width="200%" height="200%">
-        <feDropShadow dx="0" dy="12" stdDeviation="10" flood-opacity="0.24"></feDropShadow>
+        <feDropShadow dx="0" dy="32" stdDeviation="18" flood-opacity="0.28"></feDropShadow>
+      </filter>
+      <filter id="labelLift" x="-40%" y="-80%" width="180%" height="240%">
+        <feDropShadow dx="0" dy="10" stdDeviation="10" flood-opacity="0.22"></feDropShadow>
       </filter>
     </defs>
-    <rect width="1000" height="820" rx="28" class="map-bg"></rect>
-    <rect width="1000" height="820" rx="28" fill="url(#mapGrid)" opacity="0.45"></rect>
-    <path d="${polygonPath(cambodiaOutline)}" class="country"></path>
-    <clipPath id="countryClip"><path d="${polygonPath(cambodiaOutline)}"></path></clipPath>
-    <g clip-path="url(#countryClip)">
-      ${terrainPaths}
-      ${waterPaths}
-      ${riverPaths}
-      ${roadPaths}
+    <g clip-path="url(#mapCrop)">
+      <image href="./assets/rendered/wcs-map.png" x="0" y="0" width="${pdfMap.width}" height="${pdfMap.height}" preserveAspectRatio="xMidYMid meet"></image>
+      <rect x="${pdfMap.crop.x}" y="${pdfMap.crop.y}" width="${pdfMap.crop.width}" height="${pdfMap.crop.height}" class="pdf-map-soften"></rect>
+      ${restrictedOverlay}
+      ${nearestPath ? `<path d="${nearestPath}" class="pdf-nearest ${result.tone}"></path>` : ""}
+      ${nearestPath ? `<line x1="${marker.x}" y1="${marker.y}" x2="${nearestCenter.x}" y2="${nearestCenter.y}" class="nearest-line"></line>` : ""}
+      ${cityMarkers}
+      <g filter="url(#markerShadow)">
+        <circle cx="${marker.x}" cy="${marker.y}" r="78" class="risk-halo ${result.tone}"></circle>
+        <circle cx="${marker.x}" cy="${marker.y}" r="46" class="marker ${result.tone}"></circle>
+        <circle cx="${marker.x}" cy="${marker.y}" r="14" class="marker-core"></circle>
+      </g>
     </g>
-    ${areaPaths}
-    ${cityMarkers}
-    <g filter="url(#markerShadow)">
-      <circle cx="${marker.x}" cy="${marker.y}" r="19" class="marker ${result.tone}"></circle>
-      <circle cx="${marker.x}" cy="${marker.y}" r="6" class="marker-core"></circle>
+    <g class="map-callout" filter="url(#labelLift)">
+      <rect x="${Math.min(marker.x + 64, pdfMap.width - 760)}" y="${Math.max(marker.y - 88, 42)}" width="690" height="94" rx="18"></rect>
+      <text x="${Math.min(marker.x + 94, pdfMap.width - 730)}" y="${Math.max(marker.y - 48, 82)}">${statusLabel(result.status)}</text>
+      <text x="${Math.min(marker.x + 94, pdfMap.width - 730)}" y="${Math.max(marker.y - 14, 116)}" class="sub">${result.nearest.name} · ${result.nearest.distanceKm.toFixed(2)} km</text>
     </g>
-    <text x="84" y="762" class="scale-label">0</text>
-    <path d="M 106 755 L 246 755" class="scale-line"></path>
-    <text x="258" y="762" class="scale-label">~100 km</text>
   `;
+  elements.map.setAttribute("viewBox", `${pdfMap.crop.x} ${pdfMap.crop.y} ${pdfMap.crop.width} ${pdfMap.crop.height}`);
 }
 
 function renderDecision(result) {
@@ -257,10 +406,10 @@ function renderDetails(result) {
   `;
 }
 
-function polygonPath(points) {
+function polygonPath(points, projector = projectToPdfMap) {
   return points
     .map(([lng, lat], index) => {
-      const p = project(lng, lat);
+      const p = projector(lng, lat);
       return `${index === 0 ? "M" : "L"} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`;
     })
     .join(" ") + " Z";
@@ -269,19 +418,33 @@ function polygonPath(points) {
 function linePath(points) {
   return points
     .map(([lng, lat], index) => {
-      const p = project(lng, lat);
+      const p = projectToPdfMap(lng, lat);
       return `${index === 0 ? "M" : "L"} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`;
     })
     .join(" ");
 }
 
-function project(lng, lat) {
-  const padding = 70;
-  const width = 1000 - padding * 2;
-  const height = 820 - padding * 2;
-  const x = padding + ((lng - cambodiaBounds.minLng) / (cambodiaBounds.maxLng - cambodiaBounds.minLng)) * width;
-  const y = padding + ((cambodiaBounds.maxLat - lat) / (cambodiaBounds.maxLat - cambodiaBounds.minLat)) * height;
+function projectToPdfMap(lng, lat) {
+  const [x0, y0, x1, y1] = pdfMap.bbox;
+  const leftLng = interpolate(pdfMap.gpts.lowerLeft.lng, pdfMap.gpts.upperLeft.lng, 0.5);
+  const rightLng = interpolate(pdfMap.gpts.lowerRight.lng, pdfMap.gpts.upperRight.lng, 0.5);
+  const bottomLat = interpolate(pdfMap.gpts.lowerLeft.lat, pdfMap.gpts.lowerRight.lat, 0.5);
+  const topLat = interpolate(pdfMap.gpts.upperLeft.lat, pdfMap.gpts.upperRight.lat, 0.5);
+  const u = clamp((lng - leftLng) / (rightLng - leftLng), 0, 1);
+  const v = clamp((lat - bottomLat) / (topLat - bottomLat), 0, 1);
+  const pageX = x0 + u * (x1 - x0);
+  const pageY = y0 + v * (y1 - y0);
+  const x = pageX;
+  const y = pdfMap.height - pageY;
   return { x: Number(x.toFixed(2)), y: Number(y.toFixed(2)) };
+}
+
+function interpolate(a, b, t) {
+  return a + (b - a) * t;
+}
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
 }
 
 function centroid(points) {
@@ -290,8 +453,22 @@ function centroid(points) {
 }
 
 function shortName(name) {
+  if (name.startsWith("PDF extracted")) return name.replace("PDF extracted protected area ", "PDF ");
   return name
     .replace("Wildlife Sanctuary", "WS")
     .replace("National Park", "NP")
     .replace("Mountains", "Mtns");
+}
+
+function statusLabel(status) {
+  return {
+    restricted: "Inside restricted area",
+    near: "Very close to restricted area",
+    watch: "Near protected landscape",
+    clear: "Applicant location"
+  }[status];
+}
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

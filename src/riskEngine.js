@@ -23,8 +23,8 @@ export function parseCoordinateInput(value) {
   return null;
 }
 
-export function evaluateLocation(point, thresholds = { high: 5, caution: 10 }) {
-  const matches = protectedAreas.map((area) => {
+export function evaluateLocation(point, thresholds = { high: 5, caution: 10 }, areas = protectedAreas) {
+  const matches = areas.map((area) => {
     const inside = isPointInPolygon([point.lng, point.lat], area.polygon);
     const distanceKm = inside ? 0 : distanceToPolygonKm(point, area.polygon);
     return { ...area, inside, distanceKm };
