@@ -20,9 +20,9 @@
           <nav class="top-actions" aria-label="Quick actions">
             <span>Loan Review</span>
             <span>GIS Update</span>
-            <a class="source-link" href="https://github.com/nimantha-code/cambodia-land-risk-check" target="_blank" rel="noreferrer">
+            <a class="source-link" href="./assets/rendered/wcs-map.png" target="_blank" rel="noreferrer">
               <span aria-hidden="true">▦</span>
-              Repository
+              Source map
             </a>
           </nav>
         </header>
@@ -40,11 +40,29 @@
 
         <div id="notice" class="notice" hidden></div>
 
+        <section class="ingest-panel" aria-label="PDF GIS extraction workflow">
+          <div class="ingest-copy">
+            <p class="panel-kicker">GIS data update</p>
+            <h2>Upload geospatial PDF</h2>
+            <p>
+              Import a new WCS or ArcGIS map PDF, inspect extracted candidate boundaries, then activate the reviewed layer
+              for loan screening.
+            </p>
+          </div>
+          <div class="upload-box">
+            <input id="pdfInput" type="file" accept="application/pdf,.pdf" />
+            <button id="extractButton" type="button">Fetch GIS data</button>
+          </div>
+          <div id="extractProgress" class="extract-progress" hidden></div>
+          <div id="extractResult" class="extract-result" hidden></div>
+        </section>
+
         <section class="content-grid">
           <section class="map-panel" aria-label="Protected area map">
             <svg id="map" viewBox="0 0 1000 820" role="img"></svg>
             <div class="map-legend">
-              <span><i class="legend restricted"></i> Protected / forest area</span>
+              <span><i class="legend pdf-base"></i> WCS PDF map</span>
+              <span><i class="legend restricted"></i> Reviewed protected boundary</span>
               <span><i class="legend marker-dot"></i> Applicant location</span>
             </div>
           </section>
