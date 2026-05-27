@@ -5,6 +5,36 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Cambodia Land Risk Check</title>
     <link rel="stylesheet" href="./src/styles.css" />
+    <style>
+      .static-map-image {
+        display: block;
+        width: 100%;
+        height: auto;
+        max-height: 780px;
+        min-height: 620px;
+        border-radius: 8px;
+        box-shadow: 0 26px 70px rgba(6, 44, 93, 0.14);
+        background: #d7e1e6;
+        object-fit: contain;
+      }
+
+      .map-panel svg,
+      .map-controls {
+        display: none !important;
+      }
+
+      @media (max-width: 980px) {
+        .static-map-image {
+          min-height: 500px;
+        }
+      }
+
+      @media (max-width: 620px) {
+        .static-map-image {
+          min-height: 410px;
+        }
+      }
+    </style>
   </head>
   <body>
     <main class="shell">
@@ -59,6 +89,7 @@
 
         <section class="content-grid">
           <section class="map-panel" aria-label="Protected area map">
+            <img class="static-map-image" src="./assets/rendered/wcs-map.png" alt="WCS protected area map" />
             <svg id="map" viewBox="0 0 1000 820" role="img"></svg>
             <div class="map-controls" aria-label="Map zoom controls">
               <button id="zoomInButton" type="button" aria-label="Zoom in">+</button>
