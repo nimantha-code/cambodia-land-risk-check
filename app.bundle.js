@@ -82,6 +82,13 @@ const pdfMap = {
   }
 };
 
+const cambodiaScreeningBounds = {
+  minLat: 9.45,
+  maxLat: 15.1,
+  minLng: 101.75,
+  maxLng: 108.1
+};
+
 const ui = {};
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -140,6 +147,11 @@ async function runDemoSearch(event) {
   demoState.error = "";
   const coordinate = parseDemoCoordinate(value);
   if (coordinate) {
+    if (!isWithinCambodiaScreeningBounds(coordinate)) {
+      demoState.error = "That coordinate is outside the Cambodia screening area. Enter the borrower land address or Cambodia coordinates.";
+      renderDemo();
+      return;
+    }
     demoState.point = coordinate;
     renderDemo();
     return;
@@ -169,11 +181,16 @@ async function runDemoSearch(event) {
       demoState.error = "No Cambodia location found. Try a nearby town, village, or coordinates.";
       return;
     }
-    demoState.point = {
+    const geocodedPoint = {
       lat: Number(data[0].lat),
       lng: Number(data[0].lon),
       label: data[0].display_name
     };
+    if (!isWithinCambodiaScreeningBounds(geocodedPoint)) {
+      demoState.error = "The address lookup returned a location outside the Cambodia screening area.";
+      return;
+    }
+    demoState.point = geocodedPoint;
   } catch {
     demoState.error = "Online address lookup is unavailable. Try a known city or coordinates like 12.4558, 107.1881.";
   } finally {
@@ -192,11 +209,17 @@ function useDemoLocation() {
 
   navigator.geolocation.getCurrentPosition(
     (position) => {
-      demoState.point = {
+      const devicePoint = {
         lat: position.coords.latitude,
         lng: position.coords.longitude,
         label: "Current device location"
       };
+      if (!isWithinCambodiaScreeningBounds(devicePoint)) {
+        demoState.error = "Your device location is outside Cambodia. Enter the borrower land address or Cambodia coordinates instead.";
+        renderDemo();
+        return;
+      }
+      demoState.point = devicePoint;
       renderDemo();
     },
     () => {
@@ -322,13 +345,28 @@ function parseDemoCoordinate(value) {
   if (!match) return null;
   const first = Number(match[1]);
   const second = Number(match[2]);
-  if (Math.abs(first) <= 14.9 && Math.abs(second) >= 100) {
+  if (isLatitude(first) && isLongitude(second)) {
     return { lat: first, lng: second, label: `${first.toFixed(5)}, ${second.toFixed(5)}` };
   }
-  if (Math.abs(second) <= 14.9 && Math.abs(first) >= 100) {
+  if (isLongitude(first) && isLatitude(second)) {
     return { lat: second, lng: first, label: `${second.toFixed(5)}, ${first.toFixed(5)}` };
   }
   return null;
+}
+
+function isLatitude(value) {
+  return Number.isFinite(value) && value >= -90 && value <= 90;
+}
+
+function isLongitude(value) {
+  return Number.isFinite(value) && value >= -180 && value <= 180;
+}
+
+function isWithinCambodiaScreeningBounds(point) {
+  return point.lat >= cambodiaScreeningBounds.minLat &&
+    point.lat <= cambodiaScreeningBounds.maxLat &&
+    point.lng >= cambodiaScreeningBounds.minLng &&
+    point.lng <= cambodiaScreeningBounds.maxLng;
 }
 
 function updateDemoMarker(result) {
