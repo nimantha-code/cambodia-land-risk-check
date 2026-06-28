@@ -1,0 +1,30 @@
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: landrisk
+      POSTGRES_USER: landrisk
+      POSTGRES_PASSWORD: landrisk
+    ports:
+      - "5432:5432"
+    volumes:
+      - landrisk-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U landrisk -d landrisk"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    ports:
+      - "8080:8080"
+    command: sh -c "node dist/scripts/migrate.js && node dist/src/index.js"
+
+volumes:
+  landrisk-db:
