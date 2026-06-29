@@ -2,6 +2,12 @@
 
 Static prototype for screening micro-loan applicant locations against Cambodia protected-area and forest-risk zones.
 
+## API service
+
+The reusable API implementation lives in `api/`. It is a Node.js + TypeScript + Fastify service packaged for Docker with PostgreSQL/PostGIS, API-key authentication, reviewed GeoJSON dataset management, centralized geocoding, risk checks, and audit logging.
+
+See `api/README.md` for setup and endpoint details.
+
 ## Use
 
 Open `index.html` through a local static server or deploy the repository with GitHub Pages/Vercel.
